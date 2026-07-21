@@ -1,0 +1,44 @@
+﻿PAN (Permanent Account Number)
+A PAN is a unique 10-character alphanumeric identifier issued by the
+Income Tax Department of India, used to track financial transactions
+and tax liability for an individual or entity. Under India's Digital
+Personal Data Protection Act (DPDP Act, 2023), a PAN counts as personal
+data because it can identify a specific individual. Organizations
+processing PAN numbers are expected to collect and store them only for
+a clear, stated purpose, and to apply reasonable security safeguards
+against unauthorized access or leakage.
+
+Aadhaar Number
+Aadhaar is a 12-digit unique identity number issued by the UIDAI
+(Unique Identification Authority of India) to residents of India,
+linked to biometric and demographic data. Aadhaar numbers are treated
+as sensitive personal data. The Aadhaar Act, 2016 restricts how
+Aadhaar numbers can be collected, stored, and shared, and separately,
+the DPDP Act's general personal-data-protection obligations also apply
+to any organization holding Aadhaar numbers, given how uniquely
+identifying they are.
+
+Bank Account Number
+A bank account number, especially combined with other identifying
+information like a name or IFSC code, is considered financial personal
+data. Financial data of this kind is a common target in fraud and
+identity theft, and the DPDP Act's core principle of data minimization
+means organizations should avoid retaining or exposing account numbers
+beyond what a specific transaction or service requires.
+
+IFSC Code
+An IFSC (Indian Financial System Code) identifies a specific bank
+branch and is used for routing electronic fund transfers (NEFT, RTGS,
+IMPS). On its own an IFSC code does not identify a person, but when
+displayed alongside an account number and account holder name, it
+becomes part of a set of financial identifiers that, combined, can
+facilitate fraud - which is why it is treated as sensitive in this
+context and redacted alongside the account number.
+
+General principle: data minimization
+A recurring theme across India's data protection framework is data
+minimization - only collecting, storing, or displaying personal data
+that is actually necessary for the task at hand. A redaction tool that
+removes identifiers not needed for a given purpose (e.g. reviewing a
+statement's transaction history without needing to see the account
+holder's PAN) is a practical application of this principle.

@@ -1,0 +1,12 @@
+﻿venv/
+.venv/
+__pycache__/
+*.pyc
+uploads/
+redacted/
+chat_index/
+*.gguf
+.env
+.DS_Store
+.idea/
+.vscode/
