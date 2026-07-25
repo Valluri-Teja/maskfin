@@ -1,0 +1,12 @@
+﻿venv/
+.venv/
+__pycache__/
+*.pyc
+uploads/
+redacted/
+chat_index/
+tests/fixtures/
+.git/
+.gitignore
+*.gguf
+.env
