@@ -1,6 +1,14 @@
 ﻿"""
 app.py
 MaskFin: offline PII redaction + safe RAG chat over financial documents.
+
+Redact flow is two-phase:
+  1. Scan - detect PII, show every match for review, nothing is
+     redacted yet.
+  2. Confirm - user unchecks any false positives, clicks "Apply
+     redaction to selected items" - only THEN does redaction happen,
+     and only to the confirmed items.
+
 Run with: streamlit run app.py
 """
 
@@ -8,7 +16,8 @@ import os
 import shutil
 import streamlit as st
 
-from redact import redact_file
+from detect import scan_document
+from redact import apply_redactions
 from compliance import get_citation
 from chat_index import build_chat_index
 from qa_chain import build_chain, ask, LLM_BACKEND
@@ -17,8 +26,8 @@ st.set_page_config(page_title="MaskFin", layout="wide")
 st.title("🛡️ MaskFin")
 st.caption(
     f"Offline PII redaction for financial documents. PAN, Aadhaar, account "
-    f"numbers, and IFSC codes are detected and destroyed locally — the "
-    f"unredacted file never leaves your machine. LLM backend: **{LLM_BACKEND}**"
+    f"numbers, and IFSC codes are detected locally — you review every match "
+    f"before anything is redacted. LLM backend: **{LLM_BACKEND}**"
 )
 
 UPLOAD_DIR = "uploads"
@@ -39,34 +48,60 @@ with tab_redact:
 
         output_path = os.path.join(OUTPUT_DIR, f"redacted_{uploaded.name}")
 
-        if st.button("Redact this document"):
+        if st.button("Scan for PII"):
             with st.spinner("Running OCR and detecting PII locally..."):
-                audit_log = redact_file(input_path, output_path)
+                st.session_state.detections = scan_document(input_path)
+                st.session_state.scanned_file = uploaded.name
+                st.session_state.scanned_input_path = input_path
+                st.session_state.scanned_output_path = output_path
 
-            st.success(f"Redacted {len(audit_log)} item(s). Nothing left this machine.")
+        if st.session_state.get("scanned_file") == uploaded.name:
+            detections = st.session_state.detections
 
-            if audit_log:
-                st.subheader("Audit log")
-                for entry in audit_log:
-                    with st.expander(f"Page {entry['page']}: {entry['label']} redacted"):
-                        st.caption(get_citation(entry["label"]))
-            else:
+            if not detections:
                 st.info("No PAN, Aadhaar, account number, or IFSC patterns were detected.")
+            else:
+                st.subheader(f"Review: {len(detections)} match(es) found")
+                st.caption("Uncheck anything that looks like a false positive before redacting.")
 
-            with open(output_path, "rb") as f:
-                st.download_button("Download redacted file", f, file_name=f"redacted_{uploaded.name}")
+                confirmed_ids = []
+                for d in detections:
+                    checked = st.checkbox(
+                        f"Page {d['page']}: {d['label']} — \"{d['text']}\"",
+                        value=True,
+                        key=f"det_{d['id']}",
+                    )
+                    if checked:
+                        confirmed_ids.append(d["id"])
+                    with st.expander("Why is this sensitive?", expanded=False):
+                        st.caption(get_citation(d["label"]))
 
-            with st.spinner("Building a safe search index over the redacted content..."):
-                if os.path.isdir(INDEX_DIR):
-                    shutil.rmtree(INDEX_DIR)
-                build_chat_index(output_path, INDEX_DIR)
-            st.info("You can now ask questions about this document in the Chat tab.")
+                st.divider()
+
+                if st.button(f"Apply redaction to {len(confirmed_ids)} selected item(s)", disabled=len(confirmed_ids) == 0):
+                    confirmed = [d for d in detections if d["id"] in confirmed_ids]
+                    with st.spinner("Redacting selected items..."):
+                        apply_redactions(input_path, output_path, confirmed)
+
+                    st.success(f"Redacted {len(confirmed)} item(s). Nothing left this machine.")
+
+                    with open(output_path, "rb") as f:
+                        st.download_button("Download redacted file", f, file_name=f"redacted_{uploaded.name}")
+
+                    with st.spinner("Building a safe search index over the redacted content..."):
+                        if os.path.isdir(INDEX_DIR):
+                            shutil.rmtree(INDEX_DIR)
+                        build_chat_index(output_path, INDEX_DIR)
+                    st.info("You can now ask questions about this document in the Chat tab.")
 
     st.divider()
     st.caption(
         "⚠️ Known limitation: detection is regex/pattern-based for PAN, Aadhaar, "
         "account numbers, and IFSC codes. It does not detect names, addresses, "
-        "or other free-text PII — this is a targeted tool, not a general PII scanner."
+        "or other free-text PII — this is a targeted tool, not a general PII scanner. "
+        "Long numeric identifiers (15+ digits) can occasionally be flagged as account "
+        "numbers even when they're not (e.g. order references) — the review step above "
+        "exists specifically to catch cases like this before anything is redacted."
     )
 
 with tab_chat:

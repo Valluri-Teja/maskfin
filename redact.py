@@ -1,7 +1,16 @@
 ﻿"""
 redact.py
-Full redaction pipeline: PDF or image in, PII detected and blacked out,
-redacted file out in the same format, plus an audit log of what was found.
+Redaction application. Two ways to use it:
+
+1. redact_file() - the original one-shot flow: detect and redact
+   everything found, no review step. Still here for the CLI/simple
+   case, or scripted batch use.
+
+2. apply_redactions() - phase 2 of the review-before-redact flow.
+   Takes the exact list of confirmed detections (from detect.py's
+   scan_document, after the user has reviewed and deselected any
+   false positives) and redacts ONLY those - not just everything
+   the detector originally found.
 """
 
 import os
@@ -11,6 +20,7 @@ from pdf2image import convert_from_path
 import img2pdf
 
 from detectors import detect_pii
+from detect import load_pages
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 PDF_EXTENSIONS = {".pdf"}
@@ -27,6 +37,7 @@ def _redact_image(image: Image.Image) -> tuple:
 
 
 def redact_file(input_path: str, output_path: str) -> list:
+    """One-shot: detect and redact everything found. No review step."""
     ext = os.path.splitext(input_path)[1].lower()
     audit_log = []
 
@@ -58,6 +69,44 @@ def redact_file(input_path: str, output_path: str) -> list:
         raise ValueError(f"Unsupported file type: {ext}. Use PDF, JPG, or PNG.")
 
     return audit_log
+
+
+def apply_redactions(input_path: str, output_path: str, confirmed_detections: list) -> None:
+    """
+    Redact ONLY the detections in confirmed_detections (each a dict
+    with at least 'page' and 'box'), not every detection the scanner
+    originally found. Any detection the user deselected in the review
+    step simply won't appear in confirmed_detections, so it's left
+    untouched in the output.
+    """
+    ext = os.path.splitext(input_path)[1].lower()
+    pages = load_pages(input_path)
+
+    by_page = {}
+    for d in confirmed_detections:
+        by_page.setdefault(d["page"], []).append(d)
+
+    redacted_pages = []
+    for page_num, page_img in enumerate(pages, start=1):
+        redacted = page_img.copy()
+        draw = ImageDraw.Draw(redacted)
+        for d in by_page.get(page_num, []):
+            x0, y0, x1, y1 = d["box"]
+            draw.rectangle([x0 - 2, y0 - 2, x1 + 2, y1 + 2], fill="black")
+        redacted_pages.append(redacted)
+
+    if ext in PDF_EXTENSIONS:
+        image_bytes_list = []
+        for img in redacted_pages:
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            image_bytes_list.append(buf.getvalue())
+        with open(output_path, "wb") as f:
+            f.write(img2pdf.convert(image_bytes_list))
+    elif ext in IMAGE_EXTENSIONS:
+        redacted_pages[0].save(output_path)
+    else:
+        raise ValueError(f"Unsupported file type: {ext}. Use PDF, JPG, or PNG.")
 
 
 if __name__ == "__main__":
