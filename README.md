@@ -97,3 +97,14 @@ in eval_accuracy.py. On this run it did not occur; on another
 environment it did, producing 0.9/0.9/0.9. Both outcomes are expected
 and are themselves evidence the eval harness catches real, environment-
 dependent OCR edge cases rather than only clean-path behavior.
+
+## Run with Docker (recommended - avoids manual Tesseract/poppler setup)
+
+```bash
+docker build -t maskfin .
+docker run -p 8501:8501 -e GROQ_API_KEY="your_key_here" maskfin
+```
+
+This bakes Tesseract OCR and poppler into the image, so there's no need
+to install or manually add either to PATH on the host machine - the
+exact setup friction that motivated adding this in the first place.
