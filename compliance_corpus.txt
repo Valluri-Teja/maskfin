@@ -35,6 +35,44 @@ becomes part of a set of financial identifiers that, combined, can
 facilitate fraud - which is why it is treated as sensitive in this
 context and redacted alongside the account number.
 
+GSTIN
+A GSTIN (Goods and Services Tax Identification Number) is a 15-character
+identifier assigned to businesses registered under India's GST regime,
+encoding the state code and the business's PAN. While primarily a
+business identifier rather than a personal one, it can indirectly
+reveal the PAN of the proprietor for sole proprietorships, and is
+treated as sensitive financial data under the DPDP Act's broader
+personal-data principles when the entity is an individual.
+
+Passport Number
+An Indian passport number is a unique government-issued travel
+document identifier. It is classified as personal data under the DPDP
+Act because it directly identifies an individual and is commonly used
+as an identity-verification document, making its exposure a risk for
+identity fraud similar to Aadhaar or PAN.
+
+Credit/Debit Card Number
+A payment card number, when combined with an expiry date or CVV, can
+enable unauthorized transactions. Card numbers are subject to PCI-DSS
+(Payment Card Industry Data Security Standard) handling requirements
+internationally, and are treated as sensitive financial data under the
+DPDP Act's data minimization principle - they should not be displayed
+or retained beyond what a specific transaction requires.
+
+Phone Number
+A mobile phone number is classified as personal data under the DPDP
+Act because it can be used to identify and contact a specific
+individual, and is frequently used as a two-factor authentication
+channel - meaning its exposure can indirectly facilitate account
+takeover attempts on other services linked to that number.
+
+Email Address
+An email address is personal data under the DPDP Act when it can be
+linked to an identifiable individual (as opposed to a generic business
+inbox). Like a phone number, it is often used as an authentication or
+account-recovery channel, so its exposure alongside other identifiers
+increases the risk of targeted phishing or account takeover attempts.
+
 General principle: data minimization
 A recurring theme across India's data protection framework is data
 minimization - only collecting, storing, or displaying personal data

@@ -5,6 +5,15 @@ this sensitive" citation to each redacted field. This corpus is a
 paraphrased summary of general principles from India's DPDP Act and
 related frameworks, written for this project - it is NOT verbatim
 legal text and should not be treated as legal advice.
+
+chunk_size=600 is deliberately chosen (not the more common 800): with
+10 short sections of varying length, a chunk_size of 800 was found to
+merge some adjacent short sections together (e.g. Passport + Card,
+Phone + Email), which degraded citation precision - the retrieved
+chunk for "Card Number" would start with unrelated Passport text.
+600 sits between the longest single section (555 chars) and the
+smallest pair of adjacent sections combined (694 chars), guaranteeing
+each section splits into its own chunk.
 """
 
 import os
@@ -23,7 +32,7 @@ def _get_vectorstore() -> FAISS:
     global _vectorstore
     if _vectorstore is None:
         docs = TextLoader(CORPUS_PATH).load()
-        splitter = CharacterTextSplitter(separator="\n\n", chunk_size=800, chunk_overlap=0)
+        splitter = CharacterTextSplitter(separator="\n\n", chunk_size=600, chunk_overlap=0)
         chunks = splitter.split_documents(docs)
         embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
         _vectorstore = FAISS.from_documents(chunks, embeddings)
@@ -39,7 +48,8 @@ def get_citation(label: str) -> str:
 
 
 if __name__ == "__main__":
-    for label in ["PAN", "Aadhaar", "Account Number", "IFSC"]:
+    for label in ["PAN", "Aadhaar", "Account Number", "IFSC", "GSTIN",
+                  "Passport", "Card Number", "Phone Number", "Email"]:
         print(f"=== {label} ===")
         print(get_citation(label))
         print()
