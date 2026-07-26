@@ -10,3 +10,5 @@ chat_index/
 .DS_Store
 .idea/
 .vscode/
+maskfin_history.db
+batch_redacted/

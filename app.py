@@ -2,18 +2,20 @@
 app.py
 MaskFin: offline PII redaction + safe RAG chat over financial documents.
 
-Redact flow is two-phase:
-  1. Scan - detect PII, show every match for review, nothing is
-     redacted yet.
-  2. Confirm - user unchecks any false positives, clicks "Apply
-     redaction to selected items" - only THEN does redaction happen,
-     and only to the confirmed items.
+Four tabs:
+- Redact: single-file, scan-then-review-then-confirm flow
+- Batch: multiple files at once, auto-redacted (no per-item review -
+  a stated tradeoff for throughput), zipped for download
+- Chat: ask questions over the redacted document only
+- History: persistent audit trail across sessions (labels/counts only,
+  never the raw matched PII values - see history.py for why)
 
 Run with: streamlit run app.py
 """
 
 import os
 import shutil
+import pandas as pd
 import streamlit as st
 
 from detect import scan_document
@@ -21,22 +23,29 @@ from redact import apply_redactions
 from compliance import get_citation
 from chat_index import build_chat_index
 from qa_chain import build_chain, ask, LLM_BACKEND
+from history import log_session, get_all_sessions, get_session_items
+from batch import process_batch, zip_results
 
 st.set_page_config(page_title="MaskFin", layout="wide")
 st.title("🛡️ MaskFin")
 st.caption(
     f"Offline PII redaction for financial documents. PAN, Aadhaar, account "
-    f"numbers, and IFSC codes are detected locally — you review every match "
-    f"before anything is redacted. LLM backend: **{LLM_BACKEND}**"
+    f"numbers, IFSC, GSTIN, passport, card, phone, and email are detected "
+    f"locally — you review every match before anything is redacted. "
+    f"LLM backend: **{LLM_BACKEND}**"
 )
 
 UPLOAD_DIR = "uploads"
 OUTPUT_DIR = "redacted"
 INDEX_DIR = "chat_index"
+BATCH_OUTPUT_DIR = "batch_redacted"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+os.makedirs(BATCH_OUTPUT_DIR, exist_ok=True)
 
-tab_redact, tab_chat = st.tabs(["🖍️ Redact", "💬 Chat (redacted doc only)"])
+tab_redact, tab_batch, tab_chat, tab_history = st.tabs(
+    ["🖍️ Redact", "📦 Batch", "💬 Chat (redacted doc only)", "🕘 History"]
+)
 
 with tab_redact:
     uploaded = st.file_uploader("Upload a bank statement or ID document", type=["pdf", "jpg", "jpeg", "png"])
@@ -59,7 +68,7 @@ with tab_redact:
             detections = st.session_state.detections
 
             if not detections:
-                st.info("No PAN, Aadhaar, account number, or IFSC patterns were detected.")
+                st.info("No PII patterns were detected.")
             else:
                 st.subheader(f"Review: {len(detections)} match(es) found")
                 st.caption("Uncheck anything that looks like a false positive before redacting.")
@@ -82,6 +91,7 @@ with tab_redact:
                     confirmed = [d for d in detections if d["id"] in confirmed_ids]
                     with st.spinner("Redacting selected items..."):
                         apply_redactions(input_path, output_path, confirmed)
+                        log_session(uploaded.name, LLM_BACKEND, detections, set(confirmed_ids))
 
                     st.success(f"Redacted {len(confirmed)} item(s). Nothing left this machine.")
 
@@ -96,28 +106,63 @@ with tab_redact:
 
     st.divider()
     st.caption(
-        "⚠️ Known limitation: detection is regex/pattern-based for PAN, Aadhaar, "
-        "account numbers, and IFSC codes. It does not detect names, addresses, "
-        "or other free-text PII — this is a targeted tool, not a general PII scanner. "
-        "Long numeric identifiers (15+ digits) can occasionally be flagged as account "
-        "numbers even when they're not (e.g. order references) — the review step above "
-        "exists specifically to catch cases like this before anything is redacted."
+        "⚠️ Known limitation: detection is regex/pattern-based. It does not detect "
+        "names, addresses, or other free-text PII — this is a targeted tool, not a "
+        "general PII scanner. Long numeric identifiers can occasionally be misflagged "
+        "as account numbers (e.g. order references) — the review step above exists "
+        "specifically to catch cases like this before anything is redacted."
     )
 
+with tab_batch:
+    st.write(
+        "Redact several documents at once. **Tradeoff:** batch mode redacts every "
+        "detection automatically with no per-item review step — the single-file "
+        "Redact tab's checklist doesn't scale to reviewing many files in one sitting. "
+        "Use single-file mode when you need to catch false positives; use batch mode "
+        "for throughput on documents you trust the detector's judgment on."
+    )
+
+    batch_files = st.file_uploader(
+        "Upload multiple documents", type=["pdf", "jpg", "jpeg", "png"], accept_multiple_files=True
+    )
+
+    if batch_files and st.button(f"Redact all {len(batch_files)} file(s)"):
+        batch_input_paths = []
+        for f in batch_files:
+            path = os.path.join(UPLOAD_DIR, f.name)
+            with open(path, "wb") as out:
+                out.write(f.getbuffer())
+            batch_input_paths.append(path)
+
+        with st.spinner(f"Redacting {len(batch_input_paths)} file(s)..."):
+            results = process_batch(batch_input_paths, BATCH_OUTPUT_DIR)
+            zip_bytes = zip_results(results)
+
+        st.success(f"Redacted {len(results)} file(s).")
+        summary_df = pd.DataFrame([
+            {"filename": r["filename"], "items_redacted": len(r["audit_log"])} for r in results
+        ])
+        st.dataframe(summary_df, use_container_width=True)
+
+        st.download_button(
+            "Download all redacted files (.zip)", zip_bytes,
+            file_name="maskfin_batch_redacted.zip", mime="application/zip",
+        )
+
 with tab_chat:
-    if "history" not in st.session_state:
-        st.session_state.history = []
+    if "chat_messages" not in st.session_state:
+        st.session_state.chat_messages = []
 
     if not os.path.isdir(INDEX_DIR):
         st.warning("Redact a document in the Redact tab first — chat only runs over redacted content.")
     else:
-        for turn in st.session_state.history:
+        for turn in st.session_state.chat_messages:
             with st.chat_message(turn["role"]):
                 st.write(turn["content"])
 
         question = st.chat_input("Ask about the redacted document...")
         if question:
-            st.session_state.history.append({"role": "user", "content": question})
+            st.session_state.chat_messages.append({"role": "user", "content": question})
             with st.chat_message("user"):
                 st.write(question)
             with st.chat_message("assistant"):
@@ -128,4 +173,32 @@ with tab_chat:
                 if response["sources"]:
                     src_str = ", ".join(f"{f} (p.{p})" for f, p in response["sources"])
                     st.caption(f"Sources: {src_str} · {response['latency_seconds']}s")
-            st.session_state.history.append({"role": "assistant", "content": response["answer"]})
+            st.session_state.chat_messages.append({"role": "assistant", "content": response["answer"]})
+
+with tab_history:
+    st.write(
+        "Every redaction session, logged locally. **Note:** this log stores labels "
+        "and counts only — never the actual PAN/Aadhaar/card numbers found, since a "
+        "growing database of real PII values would itself become a liability."
+    )
+
+    sessions = get_all_sessions()
+    if not sessions:
+        st.info("No sessions logged yet. Redact a document to see it appear here.")
+    else:
+        sessions_df = pd.DataFrame(sessions)[
+            ["filename", "timestamp", "backend", "total_detected", "total_redacted"]
+        ]
+        st.dataframe(sessions_df, use_container_width=True)
+
+        selected_id = st.selectbox(
+            "View item breakdown for session", options=[s["id"] for s in sessions],
+            format_func=lambda sid: next(s["filename"] for s in sessions if s["id"] == sid),
+        )
+        if selected_id:
+            items = get_session_items(selected_id)
+            if not items:
+                st.info("No PII was detected in this document.")
+            else:
+                items_df = pd.DataFrame(items)[["page", "label", "redacted"]]
+                st.dataframe(items_df, use_container_width=True)
