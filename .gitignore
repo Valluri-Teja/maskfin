@@ -12,3 +12,4 @@ chat_index/
 .vscode/
 maskfin_history.db
 batch_redacted/
+tests/fixtures/
