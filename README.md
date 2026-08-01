@@ -108,3 +108,14 @@ docker run -p 8501:8501 -e GROQ_API_KEY="your_key_here" maskfin
 This bakes Tesseract OCR and poppler into the image, so there's no need
 to install or manually add either to PATH on the host machine - the
 exact setup friction that motivated adding this in the first place.
+
+## Screenshots
+
+**Review before redact — every match shown, nothing redacted until confirmed:**
+![Redact review screen](screenshots/redact-review.png)
+
+**Persistent audit history — labels and counts only, never raw PII:**
+![History tab](screenshots/history-tab.png)
+
+**Batch processing — multiple files, one zip download:**
+![Batch tab](screenshots/batch-tab.png)
