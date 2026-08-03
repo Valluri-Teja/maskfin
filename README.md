@@ -1,4 +1,10 @@
-﻿# MaskFin
+## Live Demo
+
+**https://maskfin.onrender.com**
+
+Note: runs on Render's free tier, which spins down after 15 minutes of inactivity - first load after idle time may take 30-60 seconds to wake up.
+
+# MaskFin
 
 Offline PII redaction for Indian financial documents. PAN, Aadhaar,
 bank account numbers, and IFSC codes are detected and destroyed
