@@ -8,7 +8,7 @@ Note: runs on Render's free tier, which spins down after 15 minutes of inactivit
 
 Offline PII redaction for Indian financial documents. PAN, Aadhaar,
 bank account numbers, and IFSC codes are detected and destroyed
-entirely on your machine — no cloud API calls, no external upload of
+entirely on your machine Ã¢â‚¬â€ no cloud API calls, no external upload of
 the original document. Includes a safe RAG chat feature that only ever
 sees the redacted version, plus compliance citations explaining why
 each field is treated as sensitive.
@@ -23,7 +23,7 @@ narrow and offline by design.
 ## How it's different from something like DigiLocker
 
 DigiLocker is a document *storage and verification* system for
-documents already issued by an authority — the point is proving
+documents already issued by an authority Ã¢â‚¬â€ the point is proving
 they're authentic and unmodified. MaskFin solves a different problem:
 you already have a document (e.g. a bank statement) and need to share
 *part* of it with a third party without exposing PAN, Aadhaar, or
@@ -34,7 +34,7 @@ service by design; MaskFin runs entirely offline.
 ### Why regex, not a trained model, for detection
 PAN, Aadhaar, account numbers, and IFSC codes all have rigid,
 well-defined formats (a PAN is always 5 letters + 4 digits + 1 letter,
-no exceptions). Regex is the right tool for fixed-format identifiers —
+no exceptions). Regex is the right tool for fixed-format identifiers Ã¢â‚¬â€
 a heavyweight ML model would be over-engineering here. The real ML in
 this project is OCR (Tesseract, a trained model for reading text out
 of scanned images) and the LLM used for chat.
@@ -43,7 +43,7 @@ of scanned images) and the LLM used for chat.
 This is the core privacy decision: the RAG chat index is built only
 from the OCR output of the *already-redacted* document. The chat LLM
 never has access to the real PAN, Aadhaar, or account number at any
-point in the pipeline — it's structurally excluded, not filtered at
+point in the pipeline Ã¢â‚¬â€ it's structurally excluded, not filtered at
 display time.
 
 ## Setup
@@ -51,7 +51,7 @@ display time.
 Requires Tesseract OCR and poppler installed locally (not pip
 packages):
 - Windows: [Tesseract installer](https://github.com/UB-Mannheim/tesseract/wiki),
-  [poppler](https://github.com/oschwartz10612/poppler-windows/releases) —
+  [poppler](https://github.com/oschwartz10612/poppler-windows/releases) Ã¢â‚¬â€
   add both to PATH
 
 ```bash
@@ -71,10 +71,10 @@ export GROQ_API_KEY=your_key_here
 
 - Detects structured, fixed-format identifiers only (PAN, Aadhaar,
   account number, IFSC). It does not detect names, addresses, or other
-  free-text PII — a general-purpose PII scanner would need a trained
+  free-text PII Ã¢â‚¬â€ a general-purpose PII scanner would need a trained
   NER model for that, which is intentionally out of scope here.
 - `compliance_corpus.txt` is a paraphrased summary of general DPDP Act
-  principles, written for this project — not verbatim legal text, not
+  principles, written for this project Ã¢â‚¬â€ not verbatim legal text, not
   legal advice.
 - OCR accuracy depends on scan quality; very low-resolution or skewed
   scans may miss detections.
@@ -117,11 +117,38 @@ exact setup friction that motivated adding this in the first place.
 
 ## Screenshots
 
-**Review before redact — every match shown, nothing redacted until confirmed:**
+**Review before redact Ã¢â‚¬â€ every match shown, nothing redacted until confirmed:**
 ![Redact review screen](screenshots/redact-review.png)
 
-**Persistent audit history — labels and counts only, never raw PII:**
+**Persistent audit history Ã¢â‚¬â€ labels and counts only, never raw PII:**
 ![History tab](screenshots/history-tab.png)
 
-**Batch processing — multiple files, one zip download:**
+**Batch processing Ã¢â‚¬â€ multiple files, one zip download:**
 ![Batch tab](screenshots/batch-tab.png)
+
+## Additional known limitations (production-readiness notes)
+
+- **SQLite concurrency**: history.py uses a single SQLite file. Under
+  concurrent writes (e.g. simultaneous batch uploads from different
+  users on the live deployment), SQLite's file-level locking can cause
+  write contention. Fine for a single-instance demo; a real production
+  deployment would need a proper client-server database (Postgres) or
+  a queue in front of writes.
+- **Rate limiting is in-memory, per-session, single-instance only**
+  (rate_limit.py). It resets on page refresh and doesn't coordinate
+  across multiple server instances. The correct production upgrade
+  would be a shared store (Redis) for rate limit state, not built here
+  since this runs as a single free-tier instance.
+## Additional known limitations (production-readiness notes)
+
+- **SQLite concurrency**: history.py uses a single SQLite file. Under
+  concurrent writes (e.g. simultaneous batch uploads from different
+  users on the live deployment), SQLite's file-level locking can cause
+  write contention. Fine for a single-instance demo; a real production
+  deployment would need a proper client-server database (Postgres) or
+  a queue in front of writes.
+- **Rate limiting is in-memory, per-session, single-instance only**
+  (rate_limit.py). It resets on page refresh and doesn't coordinate
+  across multiple server instances. The correct production upgrade
+  would be a shared store (Redis) for rate limit state, not built here
+  since this runs as a single free-tier instance.

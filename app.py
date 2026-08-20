@@ -1,4 +1,4 @@
-﻿"""
+"""
 app.py
 MaskFin: offline PII redaction + safe RAG chat over financial documents.
 
@@ -25,6 +25,7 @@ from chat_index import build_chat_index
 from qa_chain import build_chain, ask, LLM_BACKEND
 from history import log_session, get_all_sessions, get_session_items
 from batch import process_batch, zip_results
+from rate_limit import check_rate_limit, DEFAULT_LIMIT
 
 st.set_page_config(page_title="MaskFin", layout="wide")
 st.title("🛡️ MaskFin")
@@ -43,11 +44,15 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(BATCH_OUTPUT_DIR, exist_ok=True)
 
+if "redaction_count" not in st.session_state:
+    st.session_state.redaction_count = 0
+
 tab_redact, tab_batch, tab_chat, tab_history = st.tabs(
     ["🖍️ Redact", "📦 Batch", "💬 Chat (redacted doc only)", "🕘 History"]
 )
 
 with tab_redact:
+    st.caption(f"Session usage: {st.session_state.redaction_count}/{DEFAULT_LIMIT} redactions")
     uploaded = st.file_uploader("Upload a bank statement or ID document", type=["pdf", "jpg", "jpeg", "png"])
 
     if uploaded:
@@ -88,21 +93,26 @@ with tab_redact:
                 st.divider()
 
                 if st.button(f"Apply redaction to {len(confirmed_ids)} selected item(s)", disabled=len(confirmed_ids) == 0):
-                    confirmed = [d for d in detections if d["id"] in confirmed_ids]
-                    with st.spinner("Redacting selected items..."):
-                        apply_redactions(input_path, output_path, confirmed)
-                        log_session(uploaded.name, LLM_BACKEND, detections, set(confirmed_ids))
+                    allowed, limit_msg = check_rate_limit(st.session_state.redaction_count, 1)
+                    if not allowed:
+                        st.error(limit_msg)
+                    else:
+                        confirmed = [d for d in detections if d["id"] in confirmed_ids]
+                        with st.spinner("Redacting selected items..."):
+                            apply_redactions(input_path, output_path, confirmed)
+                            log_session(uploaded.name, LLM_BACKEND, detections, set(confirmed_ids))
+                        st.session_state.redaction_count += 1
 
-                    st.success(f"Redacted {len(confirmed)} item(s). Nothing left this machine.")
+                        st.success(f"Redacted {len(confirmed)} item(s). Nothing left this machine.")
 
-                    with open(output_path, "rb") as f:
-                        st.download_button("Download redacted file", f, file_name=f"redacted_{uploaded.name}")
+                        with open(output_path, "rb") as f:
+                            st.download_button("Download redacted file", f, file_name=f"redacted_{uploaded.name}")
 
-                    with st.spinner("Building a safe search index over the redacted content..."):
-                        if os.path.isdir(INDEX_DIR):
-                            shutil.rmtree(INDEX_DIR)
-                        build_chat_index(output_path, INDEX_DIR)
-                    st.info("You can now ask questions about this document in the Chat tab.")
+                        with st.spinner("Building a safe search index over the redacted content..."):
+                            if os.path.isdir(INDEX_DIR):
+                                shutil.rmtree(INDEX_DIR)
+                            build_chat_index(output_path, INDEX_DIR)
+                        st.info("You can now ask questions about this document in the Chat tab.")
 
     st.divider()
     st.caption(
@@ -114,6 +124,7 @@ with tab_redact:
     )
 
 with tab_batch:
+    st.caption(f"Session usage: {st.session_state.redaction_count}/{DEFAULT_LIMIT} redactions")
     st.write(
         "Redact several documents at once. **Tradeoff:** batch mode redacts every "
         "detection automatically with no per-item review step — the single-file "
@@ -127,27 +138,32 @@ with tab_batch:
     )
 
     if batch_files and st.button(f"Redact all {len(batch_files)} file(s)"):
-        batch_input_paths = []
-        for f in batch_files:
-            path = os.path.join(UPLOAD_DIR, f.name)
-            with open(path, "wb") as out:
-                out.write(f.getbuffer())
-            batch_input_paths.append(path)
+        allowed, limit_msg = check_rate_limit(st.session_state.redaction_count, len(batch_files))
+        if not allowed:
+            st.error(limit_msg)
+        else:
+            batch_input_paths = []
+            for f in batch_files:
+                path = os.path.join(UPLOAD_DIR, f.name)
+                with open(path, "wb") as out:
+                    out.write(f.getbuffer())
+                batch_input_paths.append(path)
 
-        with st.spinner(f"Redacting {len(batch_input_paths)} file(s)..."):
-            results = process_batch(batch_input_paths, BATCH_OUTPUT_DIR)
-            zip_bytes = zip_results(results)
+            with st.spinner(f"Redacting {len(batch_input_paths)} file(s)..."):
+                results = process_batch(batch_input_paths, BATCH_OUTPUT_DIR)
+                zip_bytes = zip_results(results)
+            st.session_state.redaction_count += len(batch_files)
 
-        st.success(f"Redacted {len(results)} file(s).")
-        summary_df = pd.DataFrame([
-            {"filename": r["filename"], "items_redacted": len(r["audit_log"])} for r in results
-        ])
-        st.dataframe(summary_df, use_container_width=True)
+            st.success(f"Redacted {len(results)} file(s).")
+            summary_df = pd.DataFrame([
+                {"filename": r["filename"], "items_redacted": len(r["audit_log"])} for r in results
+            ])
+            st.dataframe(summary_df, use_container_width=True)
 
-        st.download_button(
-            "Download all redacted files (.zip)", zip_bytes,
-            file_name="maskfin_batch_redacted.zip", mime="application/zip",
-        )
+            st.download_button(
+                "Download all redacted files (.zip)", zip_bytes,
+                file_name="maskfin_batch_redacted.zip", mime="application/zip",
+            )
 
 with tab_chat:
     if "chat_messages" not in st.session_state:
