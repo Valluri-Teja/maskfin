@@ -1,4 +1,4 @@
-﻿"""
+"""
 eval_accuracy.py
 Measures the detector's actual precision, recall, and F1 against a
 labeled test set, instead of relying on "it worked when I tried it once."
@@ -104,4 +104,19 @@ if __name__ == "__main__":
 # A production version of this tool should merge adjacent short digit-only
 # OCR words before applying the Account Number pattern, to make long numbers
 # robust to this kind of OCR noise.
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Third finding, from the expanded test suite (doc7_invalid_luhn_card_decoy):
+#
+# When a 16-digit sequence LOOKS like a card number but fails Luhn
+# validation, Luhn correctly rejects it - but the rejected span isn't
+# claimed, so the shorter Aadhaar pattern (checked next) partially
+# matches the first 12 digits instead of falling through cleanly to
+# Account Number. This means the decoy is detected but its LAST 4
+# DIGITS ARE LEFT UNREDACTED - the same under-redaction risk direction
+# as the real bug found earlier (Card/Aadhaar ordering), just on a
+# non-PII decoy rather than real data. Documented rather than fixed:
+# the fix would need Account Number checked earlier, which would break
+# correct labeling of every real, standalone Aadhaar number.
 # ---------------------------------------------------------------------------
