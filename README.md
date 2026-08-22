@@ -8,7 +8,7 @@ Note: runs on Render's free tier, which spins down after 15 minutes of inactivit
 
 Offline PII redaction for Indian financial documents. PAN, Aadhaar,
 bank account numbers, and IFSC codes are detected and destroyed
-entirely on your machine ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â no cloud API calls, no external upload of
+entirely on your machine ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â no cloud API calls, no external upload of
 the original document. Includes a safe RAG chat feature that only ever
 sees the redacted version, plus compliance citations explaining why
 each field is treated as sensitive.
@@ -23,7 +23,7 @@ narrow and offline by design.
 ## How it's different from something like DigiLocker
 
 DigiLocker is a document *storage and verification* system for
-documents already issued by an authority ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â the point is proving
+documents already issued by an authority ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â the point is proving
 they're authentic and unmodified. MaskFin solves a different problem:
 you already have a document (e.g. a bank statement) and need to share
 *part* of it with a third party without exposing PAN, Aadhaar, or
@@ -34,7 +34,7 @@ service by design; MaskFin runs entirely offline.
 ### Why regex, not a trained model, for detection
 PAN, Aadhaar, account numbers, and IFSC codes all have rigid,
 well-defined formats (a PAN is always 5 letters + 4 digits + 1 letter,
-no exceptions). Regex is the right tool for fixed-format identifiers ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â
+no exceptions). Regex is the right tool for fixed-format identifiers ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â
 a heavyweight ML model would be over-engineering here. The real ML in
 this project is OCR (Tesseract, a trained model for reading text out
 of scanned images) and the LLM used for chat.
@@ -43,7 +43,7 @@ of scanned images) and the LLM used for chat.
 This is the core privacy decision: the RAG chat index is built only
 from the OCR output of the *already-redacted* document. The chat LLM
 never has access to the real PAN, Aadhaar, or account number at any
-point in the pipeline ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â it's structurally excluded, not filtered at
+point in the pipeline ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â it's structurally excluded, not filtered at
 display time.
 
 ## Setup
@@ -51,7 +51,7 @@ display time.
 Requires Tesseract OCR and poppler installed locally (not pip
 packages):
 - Windows: [Tesseract installer](https://github.com/UB-Mannheim/tesseract/wiki),
-  [poppler](https://github.com/oschwartz10612/poppler-windows/releases) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â
+  [poppler](https://github.com/oschwartz10612/poppler-windows/releases) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â
   add both to PATH
 
 ```bash
@@ -71,10 +71,10 @@ export GROQ_API_KEY=your_key_here
 
 - Detects structured, fixed-format identifiers only (PAN, Aadhaar,
   account number, IFSC). It does not detect names, addresses, or other
-  free-text PII ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â a general-purpose PII scanner would need a trained
+  free-text PII ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â a general-purpose PII scanner would need a trained
   NER model for that, which is intentionally out of scope here.
 - `compliance_corpus.txt` is a paraphrased summary of general DPDP Act
-  principles, written for this project ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â not verbatim legal text, not
+  principles, written for this project ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â not verbatim legal text, not
   legal advice.
 - OCR accuracy depends on scan quality; very low-resolution or skewed
   scans may miss detections.
@@ -117,13 +117,13 @@ exact setup friction that motivated adding this in the first place.
 
 ## Screenshots
 
-**Review before redact ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â every match shown, nothing redacted until confirmed:**
+**Review before redact ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â every match shown, nothing redacted until confirmed:**
 ![Redact review screen](screenshots/redact-review.png)
 
-**Persistent audit history ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â labels and counts only, never raw PII:**
+**Persistent audit history ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â labels and counts only, never raw PII:**
 ![History tab](screenshots/history-tab.png)
 
-**Batch processing ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â multiple files, one zip download:**
+**Batch processing ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â multiple files, one zip download:**
 ![Batch tab](screenshots/batch-tab.png)
 
 ## Additional known limitations (production-readiness notes)
@@ -167,3 +167,21 @@ privacy guarantee this project is actually about is what touches an
 LLM, not literally where the server is physically located - running
 this locally (streamlit run app.py) gives the same guarantee with
 zero network transit at all.
+## Fourth finding: OCR character confusion (I/1/l, O/0)
+
+Verified live: an IFSC code "ICIC0004567" was OCR'd by Tesseract as
+"IC1IC0004567" - an extra character inserted where "I" was misread,
+likely confused with "1". This broke the IFSC pattern's strict 4-letter
+prefix requirement, causing a missed detection (false negative) on an
+otherwise correctly-formatted real field.
+
+This is a well-known OCR failure class (I/1/l and O/0 visual
+similarity), not a bug in the regex patterns themselves - the patterns
+correctly rejected genuinely malformed text. A production hardening
+step would run OCR with confidence scores and flag low-confidence
+character substitutions for manual review, rather than silently
+trusting Tesseract's raw output. Not implemented here - documented as
+the clearest concrete argument for why real-world deployment of this
+tool should never be "fully automated, zero human review," which is
+exactly why the review-before-redact step exists as the default flow
+rather than an optional safety net.
